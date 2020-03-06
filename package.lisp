@@ -2,14 +2,18 @@
 
 (cl:in-package :cl-user)
 
-(defpackage :srfi-48
+
+(defpackage "https://github.com/g000001/srfi-48"
   (:use)
-  (:export :format))
+  (:export format))
 
-(defpackage :srfi-48-internal
-  (:use :cl :fiveam)
-  (:shadow :loop :map :member :assoc)
-  (:shadowing-import-from :srfi-5 :let)
-  (:shadowing-import-from :srfi-23 :error)
-  (:shadowing-import-from :srfi-48 :format))
 
+(defpackage "https://github.com/g000001/srfi-48#internals"
+  (:use cl fiveam)
+  (:shadow loop map member assoc)
+  (:shadowing-import-from "https://github.com/g000001/srfi-5" let)
+  (:shadowing-import-from "https://github.com/g000001/srfi-23" error)
+  (:shadowing-import-from "https://github.com/g000001/srfi-48" format))
+
+
+;;; *EOF*

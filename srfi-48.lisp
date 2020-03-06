@@ -1,10 +1,9 @@
 ;;;; srfi-48.lisp
 
-(cl:in-package :srfi-48-internal)
+(cl:in-package "https://github.com/g000001/srfi-48#internals")
 
-(def-suite srfi-48)
+(def-suite* srfi-48)
 
-(in-suite srfi-48)
 
 ;; IMPLEMENTATION DEPENDENT options
 
@@ -46,37 +45,38 @@
 (defun compose-with-digits (digits pre-str frac-str exp-str)
   (let ((frac-len (length frac-str)))
     (cond
-      ((< frac-len digits) ;; grow frac part, pad with zeros
-       (string-append pre-str "."
-                      frac-str (make-string (- digits frac-len)
-                                            :initial-element #\0)
-                      exp-str))
-      ((= frac-len digits) ;; frac-part is exactly the right size
-       (string-append pre-str "."
-                      frac-str
-                      exp-str))
-      (:else ;; must round to shrink it
-       (let* ( (first-part (subseq frac-str 0 digits))
-               (last-part  (subseq frac-str digits frac-len))
-               (temp-str
-                (write-to-string
-                 (round (read-from-string
-                         (string-append first-part "." last-part)))))
-               (dot-pos (string-index  temp-str #\.))
-               (carry?
-                (and (> dot-pos digits)
-                     (> (round (read-from-string
-                                (string-append "0." frac-str)))
-                        0)))
-               (new-frac
-                (subseq temp-str 0 digits)))
-         (string-append
-          (if carry?
-              (write-to-string (+ 1 (write-to-string pre-str)))
-              pre-str)
-          "."
-          new-frac
-          exp-str))))))
+     ((< frac-len digits) ;; grow frac part, pad with zeros
+      (string-append pre-str "."
+                     frac-str (make-string (- digits frac-len)
+                                           :initial-element #\0)
+                     exp-str))
+     ((= frac-len digits) ;; frac-part is exactly the right size
+      (string-append pre-str "."
+                     frac-str
+                     exp-str))
+     (:else ;; must round to shrink it
+      (let* ( (first-part (subseq frac-str 0 digits))
+              (last-part  (subseq frac-str digits frac-len))
+              (temp-str
+               (write-to-string
+                (round (read-from-string
+                        (string-append first-part "." last-part)))))
+              (dot-pos (string-index  temp-str #\.))
+              (carry?
+               (and (> dot-pos digits)
+                    (> (round (read-from-string
+                               (string-append "0." frac-str)))
+                       0)))
+              (new-frac
+               (subseq temp-str 0 digits)))
+        (string-append
+         (if carry?
+             (write-to-string (+ 1 (read-from-string pre-str)))
+             pre-str)
+         "."
+         new-frac
+         exp-str))))))
+
 
 (defun format-fixed (number-or-string width digits) ; returns a string
   (cond
@@ -86,7 +86,7 @@
      (let ((real (realpart number-or-string))
            (imag (imagpart number-or-string)))
        (cond
-         ((not (zero? imag))
+         ((not (zerop imag))
           (string-grow
            (string-append (format-fixed real 0 digits)
                           (if (minusp imag) "" "+")
@@ -130,8 +130,13 @@
       (format "FORMAT: ~F requires a number or a string, got ~s"
               number-or-string))) ))
 
-(setf (documentation 'format 'function)
-"(format [<port>] <format-string> [<arg>...]) -- <port> is T, nil or an output-port
+(defun require-an-arg (args)
+  (when (null args)
+    (error "FORMAT: too few arguments" )))
+
+
+(defun format-doc ()
+  "(format [<port>] <format-string> [<arg>...]) -- <port> is T, nil or an output-port
 OPTION  [MNEMONIC]      DESCRIPTION     -- Implementation Assumes ASCII Text Encoding
 ~H      [Help]          output this text
 ~A      [Any]           (display arg) for humans
@@ -151,11 +156,10 @@ OPTION  [MNEMONIC]      DESCRIPTION     -- Implementation Assumes ASCII Text Enc
 ~Y      [Yuppify]       the list arg is pretty-printed to the output
 ~?      [Indirection]   recursive format: next 2 args are format-string and list of arguments
 ~K      [Indirection]   same as ~?
-" )
+")
 
-(defun require-an-arg (args)
-  (when (null args)
-    (error "FORMAT: too few arguments" )))
+(setf (documentation 'format 'function)
+      (format-doc))
 
 (defun format-help (format-strg arglist port)
   (let ((length-of-format-string (length format-strg)))
@@ -172,9 +176,9 @@ OPTION  [MNEMONIC]      DESCRIPTION     -- Implementation Assumes ASCII Text Enc
                   (anychar-dispatch (+ pos 1) arglist nil))))))
        (has-newline? (whatever last-was-newline)
          (or (eql whatever #\newline)
-             (and (string? whatever)
+             (and (stringp whatever)
                   (let ( (len (length whatever)) )
-                    (if (zero? len)
+                    (if (zerop len)
                         last-was-newline
                         (eql #\newline
                              (char whatever (- len 1))))))))
@@ -282,7 +286,7 @@ OPTION  [MNEMONIC]      DESCRIPTION     -- Implementation Assumes ASCII Text Enc
                                (let ((width  (read-from-string
                                               (coerce (reverse w-digits)
                                                       'string)))
-                                     (digits (if (zero? (length d-digits))
+                                     (digits (if (zerop (length d-digits))
                                                  nil
                                                  (read-from-string
                                                   (coerce (reverse d-digits)
@@ -308,14 +312,14 @@ OPTION  [MNEMONIC]      DESCRIPTION     -- Implementation Assumes ASCII Text Enc
                    ((< (length arglist) 2)
                     (error
                      (format "FORMAT: less arguments than specified for ~~?: ~s" arglist)))
-                   ((not (string? (car arglist)))
+                   ((not (stringp (car arglist)))
                     (error
                      (format "FORMAT: ~~? requires a string: ~s" (car arglist))))
                    (:else
                     (format-help (car arglist) (cadr arglist) port)
                     (anychar-dispatch (+ pos 1) (cddr arglist) nil))))
               ((#\H)      ; Help
-                 (princ (documentation 'format 'function) port)
+                 (princ (format-doc) port)
                  (anychar-dispatch (+ pos 1) arglist T))
               (otherwise
                  (error (format "FORMAT: unknown tilde escape: ~s"
@@ -365,15 +369,16 @@ OPTION  [MNEMONIC]      DESCRIPTION     -- Implementation Assumes ASCII Text Enc
 (test format
   (signals (cl:error)
     (format))
-  (is (string= (format "~A" 'foo)
-               "FOO"))
+  (is (string-equal (format "~A" 'foo)
+                    "FOO"))
   (signals (cl:error)
     (format nil))
-  (is (string= (format nil "~A" 'foo)
-               "FOO"))
+  (is (string-equal (format nil "~A" 'foo)
+                    "FOO"))
   ;; H
   (is (string= (format "~H")
-               (documentation 'format 'function)))
+               (or (documentation 'format 'function)
+                   (format-doc))))
   ;; A
   (is (string= (format "~A" '(1 2 3 4))
                "(1 2 3 4)"))
@@ -431,3 +436,5 @@ OPTION  [MNEMONIC]      DESCRIPTION     -- Implementation Assumes ASCII Text Enc
   ;; K
   (is (string= (format "~K" "~A~A~A" '(1 2 3))
                "123")))
+
+;;; *EOF*
